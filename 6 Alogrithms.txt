@@ -1,0 +1,396 @@
+1) BMS
+
+#include <iostream>
+#include <vector>
+#include <map>
+#include <string>
+using namespace std;
+
+map<string, vector<string>> g;
+vector<vector<string>> allPaths;
+
+void bms(string cur, string goal, map<string,bool> &vis, vector<string> &path) {
+    vis[cur] = true;
+    path.push_back(cur);
+
+    if (cur == goal) {
+        allPaths.push_back(path); // store the found path
+    } else {
+        for (auto &nbr : g[cur]) {
+            if (!vis[nbr]) bms(nbr, goal, vis, path);
+        }
+    }
+
+    path.pop_back();
+    vis[cur] = false; // allow visiting again for other paths
+}
+
+int main() {
+    // graph connections
+    g["G"] = {"B", "D"};
+    g["B"] = {"G", "C", "A"};
+    g["C"] = {"B"};
+    g["A"] = {"B", "E"};
+    g["E"] = {"A", "D"};
+    g["D"] = {"E", "G"};
+
+    map<string,bool> vis;
+    vector<string> path;
+
+    bms("G", "C", vis, path);
+
+    // print all paths
+    cout << "BMS All Paths:\n";
+    for (auto &p : allPaths) {
+        for (auto &n : p) cout << n << " ";
+        cout << "\n";
+    }
+}
+
+
+2) DFS
+
+
+#include <iostream>
+#include <vector>
+#include <map>
+using namespace std;
+
+map<string, vector<string>> g;
+bool done = false;
+
+void dfs(string cur, string goal, map<string, bool> &vis, vector<string> &path) {
+    vis[cur] = true;
+    path.push_back(cur);
+
+    if (cur == goal) {
+        cout << "DFS Path: ";
+        for (auto &x : path) cout << x << " ";
+        cout << "\n";
+        done = true;
+        return;
+    }
+
+    for (auto &nbr : g[cur]) {
+        if (!vis[nbr] && !done) dfs(nbr, goal, vis, path);
+    }
+
+    path.pop_back();
+    vis[cur] = false;
+}
+
+int main() {
+    // graph edges
+    g["G"] = {"B", "D"};
+    g["B"] = {"G", "C", "A"};
+    g["C"] = {"B"};
+    g["A"] = {"B", "E"};
+    g["E"] = {"A", "D"};
+    g["D"] = {"E", "G"};
+
+    map<string, bool> vis;
+    vector<string> path;
+
+    dfs("G", "C", vis, path);
+
+    if (!done) cout << "No path found\n";
+}
+
+
+3) BFS
+
+#include <iostream>
+#include <vector>
+#include <map>
+#include <queue>
+using namespace std;
+
+map<string, vector<string>> g;
+
+void bfs(string start, string goal) {
+    map<string, bool> vis;
+    map<string, string> parent; // to track path
+    queue<string> q;
+
+    vis[start] = true;
+    q.push(start);
+
+    while (!q.empty()) {
+        string cur = q.front();
+        q.pop();
+
+        if (cur == goal) {
+            // backtrack to get path
+            vector<string> path;
+            while (cur != "") {
+                path.push_back(cur);
+                cur = parent[cur];
+            }
+            cout << "BFS Path: ";
+            for (int i = path.size() - 1; i >= 0; i--)
+                cout << path[i] << " ";
+            cout << "\n";
+            return;
+        }
+
+        for (auto &nbr : g[cur]) {
+            if (!vis[nbr]) {
+                vis[nbr] = true;
+                parent[nbr] = cur;
+                q.push(nbr);
+            }
+        }
+    }
+    cout << "No path found\n";
+}
+
+int main() {
+    // graph
+    g["G"] = {"B", "D"};
+    g["B"] = {"G", "C", "A"};
+    g["C"] = {"B"};
+    g["A"] = {"B", "E"};
+    g["E"] = {"A", "D"};
+    g["D"] = {"E", "G"};
+
+    bfs("G", "C");
+}
+
+
+4) DFS-BFS
+
+
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <queue>
+#include <stack>
+#include <string>
+#include <unordered_set>
+#include <algorithm>
+using namespace std;
+
+class Graph {
+private:
+    unordered_map<string, vector<string>> adj;
+
+public:
+    void addEdge(const string& u, const string& v) {
+        adj[u].push_back(v);
+        adj[v].push_back(u); // undirected
+    }
+
+    // Alternate BFS step → DFS step until goal is found
+    vector<string> dfsBfsAlternate(const string& start, const string& goal) {
+        queue<string> bfsQ;
+        stack<string> dfsS;
+        unordered_set<string> visited;
+        unordered_map<string, string> parent; // to reconstruct path
+
+        bfsQ.push(start);
+        visited.insert(start);
+
+        bool bfsTurn = true; // start with BFS step
+        bool found = false;
+
+        while (!bfsQ.empty() || !dfsS.empty()) {
+            string current;
+
+            if (bfsTurn && !bfsQ.empty()) {
+                // BFS step
+                current = bfsQ.front();
+                bfsQ.pop();
+            } else if (!bfsTurn && !dfsS.empty()) {
+                // DFS step
+                current = dfsS.top();
+                dfsS.pop();
+            } else {
+                // If one is empty, switch to the other
+                bfsTurn = !bfsTurn;
+                continue;
+            }
+
+            if (current == goal) {
+                found = true;
+                break;
+            }
+
+            for (const auto& neighbor : adj[current]) {
+                if (!visited.count(neighbor)) {
+                    visited.insert(neighbor);
+                    parent[neighbor] = current;
+
+                    // Add to both structures so that alternation works
+                    bfsQ.push(neighbor);
+                    dfsS.push(neighbor);
+                }
+            }
+
+            bfsTurn = !bfsTurn; // alternate
+        }
+
+        // Reconstruct final path
+        vector<string> path;
+        if (found) {
+            string node = goal;
+            while (node != start) {
+                path.push_back(node);
+                node = parent[node];
+            }
+            path.push_back(start);
+            reverse(path.begin(), path.end());
+        }
+        return path;
+    }
+};
+
+int main() {
+    Graph g;
+    g.addEdge("G", "B");
+    g.addEdge("G", "D");
+    g.addEdge("B", "A");
+    g.addEdge("B", "C");
+    g.addEdge("D", "E");
+    g.addEdge("A", "E");
+    g.addEdge("E", "C");
+
+    vector<string> path = g.dfsBfsAlternate("G", "C");
+
+    cout << "DFS-BFS Path: ";
+    for (auto& node : path) {
+        cout << node << " ";
+    }
+    cout << endl;
+
+    return 0;
+}
+
+
+5) DFS-History:
+
+
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <string>
+using namespace std;
+
+unordered_map<string, vector<string>> graph;
+vector<string> history;
+vector<vector<string>> allPaths;
+
+void dfsAllPaths(string current, string goal, vector<string> path, unordered_map<string, bool> visited) {
+    history.push_back(current); // Record visit in DFS history
+    visited[current] = true;
+    path.push_back(current);
+
+    if (current == goal) {
+        allPaths.push_back(path); // Save this successful path
+    } else {
+        for (auto &neighbor : graph[current]) {
+            if (!visited[neighbor]) {
+                dfsAllPaths(neighbor, goal, path, visited);
+            }
+        }
+    }
+}
+
+int main() {
+    // Graph from your image
+    graph["G"] = {"B", "D"};
+    graph["B"] = {"C", "A", "G"};
+    graph["A"] = {"B", "E"};
+    graph["E"] = {"A", "D"};
+    graph["D"] = {"E", "G"};
+    graph["C"] = {"B"};
+
+    string start = "G", goal = "C";
+    vector<string> path;
+    unordered_map<string, bool> visited;
+
+    dfsAllPaths(start, goal, path, visited);
+
+    // Print all paths to goal
+    for (auto &p : allPaths) {
+        cout << "DFS-History (" << goal << "): ";
+        for (auto &node : p) cout << node;
+        cout << "\n";
+    }
+
+    return 0;
+}
+
+
+6)BFS-History:
+
+
+#include <iostream>
+#include <vector>
+#include <map>
+#include <queue>
+#include <string>
+
+using namespace std;
+
+// add undirected edge (keeps insertion order for neighbors)
+void addEdge(map<string, vector<string>> &g, const string &u, const string &v) {
+    g[u].push_back(v);
+    g[v].push_back(u);
+}
+
+// BFS over partial paths: returns all simple paths from start to goal (BFS order)
+vector<vector<string>> bfsAllPaths(const map<string, vector<string>> &g,
+                                   const string &start, const string &goal) {
+    vector<vector<string>> result;
+    queue<vector<string>> q;
+    q.push(vector<string>{start});
+
+    while (!q.empty()) {
+        vector<string> path = q.front(); q.pop();
+        string last = path.back();
+
+        if (last == goal) {
+            result.push_back(path);       // Found one full path
+            continue;                     // don't extend a finished path
+        }
+
+        // extend current path by neighbors (avoid cycles by checking membership in path)
+        for (const string &nbr : g.at(last)) {
+            bool used = false;
+            for (const string &x : path) if (x == nbr) { used = true; break; }
+            if (!used) {
+                vector<string> next = path;
+                next.push_back(nbr);
+                q.push(next);
+            }
+        }
+    }
+
+    return result;
+}
+
+int main() {
+    map<string, vector<string>> g;
+
+    // Build the graph (order of addEdge calls controls neighbor order)
+    addEdge(g, "G", "B");   
+    addEdge(g, "G", "D");  
+    addEdge(g, "B", "C");   
+    addEdge(g, "B", "A");   
+    addEdge(g, "D", "E");   
+    addEdge(g, "E", "A");   
+
+    string start = "G";
+    string goal  = "C";
+
+    auto paths = bfsAllPaths(g, start, goal);
+
+    // Print each path as contiguous node names (like GBC)
+    for (auto &p : paths) {
+        for (auto &node : p) cout << node;
+        cout << "\n";
+    }
+
+    return 0;
+}
+
