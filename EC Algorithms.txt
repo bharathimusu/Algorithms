@@ -1,0 +1,552 @@
+7) Hill Climbing
+
+
+#include <bits/stdc++.h>
+using namespace std;
+
+// Graph from your image
+map<string, vector<pair<string,int>>> graph = {
+    {"G", {{"B",9}, {"D",1}}},
+    {"B", {{"G",9}, {"C",1}, {"A",2}}},
+    {"C", {{"B",1}}},
+    {"A", {{"B",2}, {"E",3}}},
+    {"E", {{"A",3}, {"D",6}}},
+    {"D", {{"G",1}, {"E",6}}}
+};
+
+// Uniform Cost Search to find optimal path
+pair<vector<string>, int> findOptimalPath(string start, string goal) {
+    priority_queue<pair<int, vector<string>>, vector<pair<int, vector<string>>>, greater<>> pq;
+    pq.push({0, {start}});
+    set<string> visited;
+
+    while (!pq.empty()) {
+        auto [cost, path] = pq.top();
+        pq.pop();
+        string node = path.back();
+
+        if (node == goal) {
+            return {path, cost};
+        }
+
+        if (visited.count(node)) continue;
+        visited.insert(node);
+
+        for (auto &nbr : graph[node]) {
+            string next = nbr.first;
+            int edgeCost = nbr.second;
+            vector<string> newPath = path;
+            newPath.push_back(next);
+            pq.push({cost + edgeCost, newPath});
+        }
+    }
+    return {{}, -1}; // No path found
+}
+
+int main() {
+    string start = "G";
+    string goal = "C";
+
+    auto [optimalPath, optimalCost] = findOptimalPath(start, goal);
+
+    if (optimalCost != -1) {
+        cout << "Optimal Path: ";
+        for (auto &node : optimalPath) cout << node;
+        cout << "\nOptimal Cost: " << optimalCost << "\n";
+    } else {
+        cout << "No path found!\n";
+    }
+    return 0;
+}
+
+
+
+8) Oracle
+
+
+#include <bits/stdc++.h>
+using namespace std;
+
+// Graph from the image (undirected, with weights)
+map<string, vector<pair<string,int>>> g = {
+    {"G", {{"B",9}, {"D",1}}},
+    {"B", {{"G",9}, {"C",1}, {"A",2}}},
+    {"C", {{"B",1}}},
+    {"A", {{"B",2}, {"E",3}}},
+    {"E", {{"A",3}, {"D",6}}},
+    {"D", {{"G",1}, {"E",6}}}
+};
+
+vector<string> currentPath;  
+vector<pair<vector<string>, int>> allPaths;  
+set<string> visited;
+
+void dfs(string cur, string goal, int cost) {
+    currentPath.push_back(cur);
+    visited.insert(cur);
+
+    if (cur == goal) {
+        allPaths.push_back({currentPath, cost});
+    } else {
+        for (auto &p : g[cur]) {
+            string next = p.first;
+            int w = p.second;
+            if (!visited.count(next)) {
+                dfs(next, goal, cost + w);
+            }
+        }
+    }
+
+    visited.erase(cur);
+    currentPath.pop_back();
+}
+
+int main() {
+    string start = "G";
+    string goal = "C";
+
+    dfs(start, goal, 0);
+
+    if (allPaths.empty()) {
+        cout << "No path found from " << start << " to " << goal << "\n";
+        return 0;
+    }
+
+    // Show all possible paths with cost
+    cout << "All Possible Paths:\n";
+    for (auto &p : allPaths) {
+        for (auto &node : p.first) cout << node;
+        cout << "  Cost = " << p.second << "\n";
+    }
+
+    // Find the optimal path
+    auto best = min_element(allPaths.begin(), allPaths.end(),
+        [](auto &a, auto &b) { return a.second < b.second; });
+
+    cout << "\nOptimal Path: ";
+    for (auto &node : best->first) cout << node << " ";
+    cout << "\nOptimal Cost: " << best->second << "\n";
+
+    return 0;
+}
+
+
+
+9) Beam Search
+
+#include <bits/stdc++.h>
+using namespace std;
+
+// Graph from your image (unweighted for beam search, just neighbors)
+map<string, vector<string>> graph = {
+    {"G", {"B", "D"}},
+    {"B", {"G", "C", "A"}},
+    {"C", {"B"}},
+    {"A", {"B", "E"}},
+    {"E", {"A", "D"}},
+    {"D", {"G", "E"}}
+};
+
+// Edge weights for cost calculation
+map<pair<string,string>, int> weights = {
+    {{"G","B"},9}, {{"B","G"},9},
+    {{"B","C"},1}, {{"C","B"},1},
+    {{"B","A"},2}, {{"A","B"},2},
+    {{"A","E"},3}, {{"E","A"},3},
+    {{"E","D"},6}, {{"D","E"},6},
+    {{"D","G"},1}, {{"G","D"},1}
+};
+
+// Heuristics from the image
+map<string,int> h = {
+    {"G",0}, {"B",6}, {"C",99},
+    {"A",11}, {"E",7}, {"D",1}
+};
+
+int main() {
+    string start = "G", goal = "C";
+    int beamWidth = 2;
+
+    vector<vector<string>> level = {{start}}; // each path to consider
+
+    while (!level.empty()) {
+        vector<vector<string>> newPaths;
+
+        // Check if goal is in current level
+        for (auto &path : level) {
+            if (path.back() == goal) {
+                // Compute cost
+                int cost = 0;
+                for (size_t i = 0; i+1 < path.size(); ++i)
+                    cost += weights[{path[i], path[i+1]}];
+                
+                cout << "Beam Search Path: ";
+                for (size_t i = 0; i < path.size(); i++)
+                    cout << path[i] << (i+1 < path.size() ? " -> " : "");
+                cout << "  (cost " << cost << ")\n";
+                return 0;
+            }
+        }
+
+        // Expand all paths in current level
+        for (auto &path : level) {
+            string node = path.back();
+            for (auto &nbr : graph[node]) {
+                if (find(path.begin(), path.end(), nbr) == path.end()) { // avoid cycles
+                    auto newPath = path;
+                    newPath.push_back(nbr);
+                    newPaths.push_back(newPath);
+                }
+            }
+        }
+
+        if (newPaths.empty()) break;
+
+        // Sort new paths by heuristic of last node
+        sort(newPaths.begin(), newPaths.end(), [&](auto &p1, auto &p2) {
+            return h[p1.back()] < h[p2.back()];
+        });
+
+        // Keep top beamWidth paths
+        if ((int)newPaths.size() > beamWidth)
+            newPaths.resize(beamWidth);
+
+        level = newPaths;
+    }
+
+    cout << "Goal not found.\n";
+}
+
+
+10) Beam Search-History:
+
+#include <iostream>
+#include <map>
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+map<string, vector<pair<string,int>>> graph = {
+    {"G", {{"B",4}, {"D",3}}},
+    {"B", {{"C",6}, {"E",5}, {"A",2}}},
+    {"D", {{"E",2}, {"A",5}}},
+    {"E", {{"A",1}}},
+    {"A", {{"B",2}, {"C",4}}},
+    {"C", {}}
+};
+
+map<string,int> h = { {"G",0}, {"B",6}, {"C",4}, {"D",3}, {"E",5}, {"A",7} };
+
+int path_cost(const vector<string>& path) {
+    int cost = 0;
+    for (size_t i = 0; i+1 < path.size(); i++) {
+        string u = path[i], v = path[i+1];
+        for (auto [n,w] : graph[u]) {
+            if (n == v) { cost += w; break; }
+        }
+    }
+    return cost;
+}
+
+int main() {
+    int beamWidth = 2;
+    vector<vector<string>> level = {{"G"}}; // start node
+    vector<string> history = {"G"};
+    vector<vector<string>> goalPaths;
+
+    while (!level.empty()) {
+        vector<vector<string>> nextLevel;
+
+        for (auto path : level) {
+            string last = path.back();
+            if (last == "C") { // goal found
+                goalPaths.push_back(path);
+                continue;
+            }
+            for (auto [n,w] : graph[last]) {
+                if (find(path.begin(), path.end(), n) != path.end()) continue;
+                auto newPath = path;
+                newPath.push_back(n);
+                nextLevel.push_back(newPath);
+                history.push_back(n);
+            }
+        }
+        if (nextLevel.empty()) break;
+        sort(nextLevel.begin(), nextLevel.end(),
+             [](const auto &a, const auto &b) {
+                 return h.at(a.back()) < h.at(b.back());
+             });
+
+        if ((int)nextLevel.size() > beamWidth)
+            nextLevel.resize(beamWidth);
+
+        level = nextLevel;
+    }
+
+    for (auto &p : goalPaths) {
+        for (size_t i = 0; i < p.size(); i++)
+            cout << p[i] << (i+1 < p.size() ? " -> " : "");
+        cout << "  (cost " << path_cost(p) << ")\n";
+    }
+    cout << "Search History: ";
+    for (size_t i = 0; i < history.size(); i++)
+        cout << history[i] << (i+1 < history.size() ? " -> " : "");
+    cout << endl;
+}
+
+
+
+11) Hill Climbing - History:
+
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    map<string, vector<pair<string,int>>> G = {
+        {"G", {{"B",4}, {"D",3}}},
+        {"B", {{"C",6}, {"E",5}, {"A",2}}},
+        {"D", {{"E",2}, {"A",5}}},
+        {"E", {{"A",1}}},
+        {"A", {{"B",2}}},
+        {"C", {}}
+    };
+    map<string,int> h = {
+        {"G",0}, {"B",6}, {"C",4}, {"D",3}, {"E",5}, {"A",7}
+    };
+
+    string start = "G", goal = "C";
+    vector<string> path;
+    vector<string> history;
+    map<string,bool> visited;
+
+    auto pathCost = [&](const vector<string> &p){
+        int cost = 0;
+        for(size_t i = 0; i+1 < p.size(); i++){
+            string u = p[i], v = p[i+1];
+            for(auto &edge : G[u]){
+                if(edge.first == v) { cost += edge.second; break; }
+            }
+        }
+        return cost;
+    };
+
+    function<bool(string)> hillClimb = [&](string u){
+        history.push_back(u);
+        path.push_back(u);
+
+        if(u == goal) return true;
+        visited[u] = true;
+        vector<pair<string,int>> nbrs = G[u];
+        sort(nbrs.begin(), nbrs.end(), [&](auto &a, auto &b){
+            if(h[a.first] != h[b.first]) return h[a.first] < h[b.first];
+            return a.first < b.first;
+        });
+        if(!nbrs.empty()) {
+            string best = nbrs[0].first;
+            if(!visited[best]) {
+                if(hillClimb(best)) return true;
+            }
+        }
+
+        path.pop_back();
+        return false;
+    };
+
+    if(hillClimb(start)){
+        cout << "Hill Climbing Path: ";
+        for(size_t i=0; i<path.size(); i++){
+            cout << path[i] << (i+1<path.size() ? " -> " : "");
+        }
+        cout << "  (cost " << pathCost(path) << ")\n";
+    } else {
+        cout << "No path found\n";
+    }
+
+    cout << "Search History: ";
+    for(size_t i=0; i<history.size(); i++){
+        cout << history[i] << (i+1<history.size() ? " -> " : "");
+    }
+    cout << "\n";
+}
+
+
+12) Branch & Bond:
+
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Node {
+    int cost; // g(n)
+    string name;
+    vector<string> path;
+    bool operator>(const Node& other) const {
+        return cost > other.cost; // min-heap by cost
+    }
+};
+
+int main() {
+    unordered_map<string, vector<pair<string, int>>> graph = {
+        {"G", {{"B", 4}, {"D", 5}}},
+        {"B", {{"C", 6}}},
+        {"D", {{"E", 2}}},
+        {"E", {{"A", 5}}},
+        {"A", {{"B", 3}}},
+        {"C", {}}
+    };
+
+    string start = "G";
+    string goal = "C";
+
+    priority_queue<Node, vector<Node>, greater<Node>> pq;
+    pq.push({0, start, {start}});
+
+    int oracle = INT_MAX; 
+
+    while (!pq.empty()) {
+        Node cur = pq.top();
+        pq.pop();
+
+        if (cur.cost >= oracle) continue; 
+
+        if (cur.name == goal) {
+            oracle = cur.cost; 
+            cout << "Path: ";
+            for (size_t i = 0; i < cur.path.size(); i++) {
+                cout << cur.path[i] << (i + 1 < cur.path.size() ? " -> " : "");
+            }
+            cout << "   Cost: " << cur.cost << "\n";
+            continue; 
+        }
+
+        for (auto& [v, w] : graph[cur.name]) {
+            vector<string> new_path = cur.path;
+            new_path.push_back(v);
+            pq.push({cur.cost + w, v, new_path});
+        }
+    }
+}
+
+
+13) Branch & Bond + estimated Heuristic:
+
+
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Node {
+    string n;          // current node
+    int cost;          // g(n) - path cost so far
+    int est;           // f(n) = g(n) + h(n)
+    vector<string> path;
+};
+
+int main() {
+    // Graph with edge costs
+    map<string, vector<pair<string,int>>> g = {
+        {"G", {{"B", 4}, {"D", 5}}},
+        {"B", {{"C", 6}}},
+        {"D", {{"E", 2}}},
+        {"E", {{"A", 5}}},
+        {"A", {{"B", 3}}},
+        {"C", {}}
+    };
+
+    // Heuristic values (estimated cost to goal "C")
+    map<string,int> h = {
+        {"G", 10}, {"B", 6}, {"C", 0},
+        {"D", 9}, {"E", 8}, {"A", 7}
+    };
+
+    string start = "G", goal = "C";
+
+    auto cmp = [](Node a, Node b) { return a.est > b.est; }; // min-heap
+    priority_queue<Node, vector<Node>, decltype(cmp)> pq(cmp);
+
+    pq.push({start, 0, h[start], {start}});
+
+    while (!pq.empty()) {
+        Node cur = pq.top(); pq.pop();
+
+        if (cur.n == goal) {
+            cout << "Path: ";
+            for (size_t i = 0; i < cur.path.size(); i++)
+                cout << cur.path[i] << (i + 1 < cur.path.size() ? " -> " : "");
+            cout << "\nCost: " << cur.cost << "\n";
+            break;
+        }
+
+        for (auto &nbr : g[cur.n]) {
+            Node next;
+            next.n = nbr.first;
+            next.cost = cur.cost + nbr.second;
+            next.est = next.cost + h[next.n];
+            next.path = cur.path;
+            next.path.push_back(next.n);
+            pq.push(next);
+        }
+    }
+}
+
+
+
+14) A* :
+
+
+#include <bits/stdc++.h>
+using namespace std;
+
+struct Node {
+    string name;
+    int g; // cost so far
+    int f; // total estimated cost (g + h)
+    vector<string> path;
+};
+
+int main() {
+    map<string, vector<pair<string,int>>> graph = {
+        {"G", {{"B",4}, {"D",5}}},
+        {"B", {{"C",6}}},
+        {"D", {{"E",2}}},
+        {"E", {{"A",5}}},
+        {"A", {{"B",3}}},
+        {"C", {}}
+    };
+    map<string,int> h = {
+        {"G",10}, {"B",6}, {"C",0},
+        {"D",9}, {"E",8}, {"A",7}
+    };
+
+    string start = "G", goal = "C";
+
+    auto cmp = [](Node a, Node b){ return a.f > b.f; };
+    priority_queue<Node, vector<Node>, decltype(cmp)> pq(cmp);
+
+    set<string> visited;
+    pq.push({start, 0, h[start], {start}});
+
+    while(!pq.empty()) {
+        Node cur = pq.top(); pq.pop();
+        if(visited.count(cur.name)) continue;
+        visited.insert(cur.name);
+
+        if(cur.name == goal) {
+            cout << "A* Path: ";
+            for(size_t i = 0; i < cur.path.size(); i++)
+                cout << cur.path[i] << (i + 1 < cur.path.size() ? " -> " : "");
+            cout << "\nTotal Cost: " << cur.g << "\n";
+            break;
+        }
+
+        for(auto &nbr : graph[cur.name]) {
+            if(!visited.count(nbr.first)) {
+                Node next;
+                next.name = nbr.first;
+                next.g = cur.g + nbr.second;
+                next.f = next.g + h[next.name];
+                next.path = cur.path;
+                next.path.push_back(next.name);
+                pq.push(next);
+            }
+        }
+    }
+}
